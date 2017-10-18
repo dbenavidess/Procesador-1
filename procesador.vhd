@@ -32,7 +32,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 entity procesador is
     Port ( rst : in  STD_LOGIC;
            clk : in  STD_LOGIC;
-           instruction : out  STD_LOGIC_VECTOR (31 downto 0));
+           asd : out  STD_LOGIC_VECTOR (31 downto 0));
 end procesador;
 
 
@@ -60,14 +60,65 @@ component Instructon_Memory
          instruction : out  STD_LOGIC_VECTOR (31 downto 0)
 	);
 end component;
-
+COMPONENT ControlUnit
+	PORT(
+		op : IN std_logic_vector(1 downto 0);
+		op3 : IN std_logic_vector(5 downto 0);          
+		aluop : OUT std_logic_vector(5 downto 0)
+		);
+	END COMPONENT;
+COMPONENT SEU
+	PORT(
+		imm13 : IN std_logic_vector(12 downto 0);          
+		seuimm : OUT std_logic_vector(31 downto 0)
+		);
+	END COMPONENT;
+COMPONENT RegisterFile
+	PORT(
+		rs1 : IN std_logic_vector(4 downto 0);
+		rs2 : IN std_logic_vector(4 downto 0);
+		rd : IN std_logic_vector(4 downto 0);
+		rst : IN std_logic;
+		dwr : IN std_logic_vector(31 downto 0);          
+		crs1 : OUT std_logic_vector(31 downto 0);
+		crs2 : OUT std_logic_vector(31 downto 0)
+		);
+	END COMPONENT;
+COMPONENT Multiplexor
+	PORT(
+		A : IN std_logic_vector(31 downto 0);
+		B : IN std_logic_vector(31 downto 0);
+		Sel : IN std_logic;          
+		Salida : OUT std_logic_vector(31 downto 0)
+		);
+	END COMPONENT;
+COMPONENT ALU
+	PORT(
+		op_code : IN std_logic_vector(5 downto 0);
+		op1 : IN std_logic_vector(31 downto 0);
+		op2 : IN std_logic_vector(31 downto 0);          
+		result : OUT std_logic_vector(31 downto 0)
+		);
+	END COMPONENT;
 
 
 signal add : std_logic_vector(31 downto 0);
 signal add_aux : std_logic_vector(31 downto 0);
 signal sum : std_logic_vector(31 downto 0);
+signal ins : std_logic_vector(31 downto 0);
+signal ALUinstr : std_logic_vector(5 downto 0);
+signal imm13 : std_logic_vector(12 downto 0);
+signal extended : std_logic_vector(31 downto 0);
+signal mux2 : std_logic_vector(31 downto 0);
+signal OP1 : std_logic_vector(31 downto 0);
+signal OP2 : std_logic_vector(31 downto 0);
+signal ALUout : std_logic_vector(31 downto 0);
+
+
 begin
 
+imm13<= ins(12 downto 0);
+asd<=ALUout;
 
 
 
@@ -85,14 +136,45 @@ Inst_ProgramCounter: ProgramCounter PORT MAP(
 	);
 Inst_Sumador32b: Sumador32b PORT MAP(
 		Oper1 => add,
-		Oper2 => "00000000000000000000000000000100",
+		Oper2 => "00000000000000000000000000000001",
 		Result => sum
 	);
 Inst_Instructon_Memory: Instructon_Memory PORT MAP(
 		address => add,
 		rst => rst,
-		instruction => instruction
+		instruction => ins
 	);
 
+Inst_ControlUnit: ControlUnit PORT MAP(
+	op => ins(31 downto 30),
+	op3 => ins(24 downto 19),
+	aluop => ALUinstr
+);
+Inst_SEU: SEU PORT MAP(
+		imm13 => imm13,
+		seuimm => extended
+	);
+
+Inst_RegisterFile: RegisterFile PORT MAP(
+		rs1 => ins(18 downto 14),
+		rs2 => ins(4 downto 0),
+		rd => ins(29 downto 25),
+		rst => rst,
+		dwr => ALUout,
+		crs1 => OP1,
+		crs2 => mux2
+	);
+Inst_Multiplexor: Multiplexor PORT MAP(
+		A => mux2,
+		B => extended,
+		Sel => ins(13),
+		Salida => OP2
+	);
+Inst_ALU: ALU PORT MAP(
+		op_code => ALUinstr,
+		op1 => OP1,
+		op2 => OP2,
+		result => ALUout
+	);
 end Behavioral;
 
